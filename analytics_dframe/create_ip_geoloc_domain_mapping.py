@@ -1,5 +1,5 @@
 import geoip2.database
-import os, csv, whois
+import os, csv
 from ipwhois import IPWhois
 import pandas as pd
 from tqdm import tqdm, trange

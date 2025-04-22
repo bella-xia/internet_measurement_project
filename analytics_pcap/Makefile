@@ -14,7 +14,8 @@ CXX = g++
 CXXFLAGS = -g -Wall -std=c++17
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c $
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 
 all : convbyte
 
@@ -28,7 +29,7 @@ dns: $(CXX_MAKE_DNS_OBJS)
 	$(CXX) -o $@ $(CXX_USE_DNS_OBJS) -lpcap
 
 clean :
-	rm -f *.o main timestamp convbyte dns depend.mak perf.*
+	rm -f *.o stats/*.o main timestamp convbyte dns depend.mak perf.*
 
 depend :
 	$(CXX) $(CXXFLAGS) -M $(CXX_SRCS) >> depend.mak

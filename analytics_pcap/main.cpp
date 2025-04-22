@@ -55,7 +55,8 @@ int main()
 
     for (const auto &file : pcap_files)
     {
-        futures.push_back(std::async(std::launch::async, conversation_length_analysis, file));
+        futures.push_back(std::async(std::launch::async, timestamp_helper, file));
+        // conversation_length_analysis, file));
     }
 
     for (auto &fut : futures)
