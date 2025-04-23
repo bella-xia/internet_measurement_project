@@ -59,8 +59,8 @@ if __name__ == '__main__':
     top_dns = [df.iloc[idx]['domain'] for idx in range(len(df))]
 
     for server in ["default", "8.8.4.4", "1.1.1.1", "208.67.222.222"]: # default, google, cloudfare, opendns
-        # if server == "default":
-        #     continue
+        if server == "default":
+            continue
         parser = DigRecordParser()
         for dn in tqdm(top_dns[:100]):
             dns_log = run_dig(dn, server=server)
@@ -68,5 +68,3 @@ if __name__ == '__main__':
     
         with open(f"Tranco_top100_{server}_dns_query.json", "w") as f:
             json.dump(parser.all_data, f, indent=4)
-        
-        exit(0)

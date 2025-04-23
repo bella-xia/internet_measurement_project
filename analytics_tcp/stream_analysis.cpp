@@ -7,12 +7,11 @@
 #include <tuple>
 #include <iomanip>
 #include <numeric>
+#include <cstring>
+#include <cmath>
 
 #include "stream_analysis.h"
 
-// #define PRINT
-// #define DEBUG
-#define ANALYTICS
 #define CSV
 
 std::mutex log_mutex;
@@ -31,16 +30,6 @@ void per_capture_tcp_stream(const std::string &file_path)
         std::cerr << "Couldn't open file: " << errbuf << "\n";
         return;
     }
-
-#ifdef DEBUG
-    std::ofstream outfile("log_file.txt");
-
-    if (!outfile)
-    {
-        std::cerr << "Failed to open output.txt\n";
-        return;
-    }
-#endif
 
     // data structure per capture
     std::vector<stream_stats> streams;
@@ -63,7 +52,7 @@ void per_capture_tcp_stream(const std::string &file_path)
             firstTs = header.ts.tv_sec;
 
         lastTs = header.ts.tv_sec;
-#ifdef ANALYTICS
+
         const struct ether_header *eth = (struct ether_header *)packet;
         if (ntohs(eth->ether_type) != ETHERTYPE_IP)
             continue;
@@ -81,7 +70,7 @@ void per_capture_tcp_stream(const std::string &file_path)
 
         auto stream_data = make_stream_key(ip_hdr->ip_src, ntohs(tcp_hdr->th_sport),
                                            ip_hdr->ip_dst, ntohs(tcp_hdr->th_dport));
-        uint64_t timestamp = static_cast<uint64_t>(header.ts.tv_sec) * 1000000UL + header.ts.tv_usec;
+        uint64_t ts = header.ts.tv_sec * 1e6 + header.ts.tv_usec;
 
         if (!std::get<2>(stream_data))
             continue;
@@ -91,11 +80,6 @@ void per_capture_tcp_stream(const std::string &file_path)
         std::string ackd_ident = (!direc) ? "src->dst" : "dst->src";
         std::string s_ident = std::get<0>(stream_data);
 
-#ifdef DEBUG
-        outfile << "Packet #" << packet_idx << std::endl;
-        outfile << "getting tcp packet at " << timestamp << " microsecomd" << std::endl;
-        outfile << "tcp stream: " << s_ident << std::endl;
-#endif
         auto [it, inserted] = tuple2idx.emplace(s_ident, curr_idx);
         uint32_t stream_idx = it->second;
         if (inserted)
@@ -130,9 +114,9 @@ void per_capture_tcp_stream(const std::string &file_path)
             stream_ref.basics.dst2src_pkts += 1;
             stream_ref.basics.dst2src_bytes += header.len;
         }
-        if (stream_ref.basics.start_ts == 0)
-            stream_ref.basics.start_ts = timestamp;
-        stream_ref.basics.end_ts = timestamp;
+        if (wkst_ref.start_ts == 0.0)
+            wkst_ref.start_ts = ts;
+        wkst_ref.end_ts = ts;
 
         // flags
         uint16_t p_flag = tcp_hdr->th_flags;
@@ -141,21 +125,13 @@ void per_capture_tcp_stream(const std::string &file_path)
         stream_ref.flags.num_rst += ((p_flag & RST_BIT) != 0);
         stream_ref.flags.num_fin += ((p_flag & FIN_BIT) != 0);
 
-#ifdef DEBUG
-        outfile << (stream_ref.flags.num_syn ? "SYN " : "NO_SYN ");
-        outfile << (stream_ref.flags.num_ack ? "ACK " : "NO_ACK ");
-        outfile << (stream_ref.flags.num_rst ? "RST " : "NO_RST ");
-        outfile << (stream_ref.flags.num_fin ? "FIN " : "NO_FIN ");
-        outfile << std::endl;
-#endif
-
         // handshake
         // condition for adding to syn_req: any syn packets??
         if ((p_flag & SYN_BIT) && !(p_flag & ACK_BIT))
         {
             stream_ref.handshakes.syn_reqs++;
-            if (stream_ref.handshakes.handshake_req == 0)
-                stream_ref.handshakes.handshake_req = timestamp;
+            if (wkst_ref.handshake_req == 0.0)
+                wkst_ref.handshake_req = ts;
         }
 
         // condition for adding syn_ack: any syn + ack??
@@ -171,56 +147,37 @@ void per_capture_tcp_stream(const std::string &file_path)
             wkst_ref.syn_ack_seqnums.find(tcp_hdr->ack_seq) != wkst_ref.syn_ack_seqnums.end())
         {
             stream_ref.handshakes.ack_affs++;
-            if (stream_ref.handshakes.handshake_compl == 0)
-                stream_ref.handshakes.handshake_compl = timestamp;
+            if (wkst_ref.handshake_compl == 0.0)
+                wkst_ref.handshake_compl = ts;
         }
 
         // performances and throughputs & anomalies
-
         uint32_t seq_num = ntohl(tcp_hdr->seq);
         uint32_t ackseq_num = ntohl(tcp_hdr->ack_seq);
-#ifdef DEBUG
-        outfile << "found packet " << (std::get<1>(stream_data) ? "src->dst" : "dst->src") << " with sequence number " << seq_num << " and payload " << payload_len << std::endl;
-#endif
         if (p_flag & ACK_BIT)
         {
             auto it = wkst_ref.packet_ts[ackd_ident].find(ackseq_num);
             if (it != wkst_ref.packet_ts[ackd_ident].end())
             {
-                wkst_ref.rtts[ackd_ident].push_back(timestamp - std::get<0>(it->second));
-#ifdef DEBUG
-                outfile << d_ident << " acked packet sequence number " << ackseq_num << " with rtt " << timestamp - std::get<0>(it->second) << std::endl;
-#endif
-                if (!(p_flag & FIN_BIT) && std::get<1>(it->second)) // Dup ack
-                {
+                if (!(p_flag & FIN_BIT) && std::get<1>(it->second) == seq_num) // Dup ack
                     stream_ref.anormalies.num_dupack++;
-#ifdef DEBUG
-                    outfile << "found duplicate acknowledgement on ack sequence number " << ackseq_num << std::endl;
-#endif
-                }
                 else
-                    wkst_ref.packet_ts[ackd_ident][ackseq_num] = {std::get<0>(it->second), true};
-            }
-            else
-            {
-#ifdef DEBUG
-                outfile << "found an ack packet. but unable to find its corresponding prior packet: " << ackseq_num << std::endl;
-#endif
+                {
+                    wkst_ref.packet_ts[ackd_ident][ackseq_num] = {std::get<0>(it->second), seq_num};
+                    wkst_ref.rtts[ackd_ident].push_back(ts - std::get<0>(it->second));
+                }
             }
         }
         if (payload_len > 0)
         {
             auto it = wkst_ref.seqs_sent[d_ident].find(seq_num);
-            bool ack_status = false;
+            uint32_t ack_status = false;
 
             // retransmission
             if (it != wkst_ref.seqs_sent[d_ident].end())
             {
-#ifdef DEBUG
-                outfile << "found retransmitted packet with sequence number " << seq_num << std::endl;
-#endif
                 auto ts_record = wkst_ref.packet_ts[d_ident].find(seq_num + payload_len);
-                ack_status = (ts_record != wkst_ref.packet_ts[d_ident].end()) ? std::get<1>(ts_record->second) : false;
+                ack_status = (ts_record != wkst_ref.packet_ts[d_ident].end()) ? std::get<1>(ts_record->second) : seq_num;
                 stream_ref.anormalies.num_retr++;
             }
             else
@@ -231,29 +188,12 @@ void per_capture_tcp_stream(const std::string &file_path)
                 if (seq_num >= wkst_ref.max_seqnums[d_ident])
                     wkst_ref.max_seqnums[d_ident] = seq_num;
                 else
-                {
-#ifdef DEBUG
-                    outfile << "found out-of-order packet with sequence number " << seq_num << std::endl;
-#endif
                     stream_ref.anormalies.num_o3++;
-                }
             }
-#ifdef DEBUG
-            outfile << "inserting into packet ts sequence number " << seq_num + payload_len << std::endl;
-#endif
-            wkst_ref.packet_ts[d_ident][seq_num + payload_len] = {timestamp, ack_status};
+
+            wkst_ref.packet_ts[d_ident][seq_num + payload_len] = {ts, ack_status};
             wkst_ref.seqs_sent[d_ident].insert(seq_num);
         }
-
-#ifdef DEBUG
-        outfile << "payload: ";
-        if (payload_len > 10)
-        {
-            for (int i = 0; i < 10; i++)
-                outfile << "0x" << std::hex << std::setw(2) << std::setfill('0') << (static_cast<unsigned>(static_cast<unsigned char>(payload[i]))) << std::dec << " ";
-        }
-        outfile << std::endl;
-#endif
 
         /*  check for likely TLS traffic:
              Byte 0: Content Type (0x16 for Handshake)
@@ -267,38 +207,72 @@ void per_capture_tcp_stream(const std::string &file_path)
             {
                 stream_ref.tls.num_tls++;
                 stream_ref.tls.tls_ver.insert(payload[2] - TLS_MINOR_V0);
-#ifdef DEBUG
-                outfile << "identified TLS packet with version 1." << payload[2] - TLS_MINOR_V0 << std::endl;
-#endif
 
                 if (payload[0] == TLS_HANDSHAKE)
                 {
-                    if (stream_ref.tls.tls_client_hello == 0 && payload[5] == 0x01)
-                    {
-#ifdef DEBUG
-                        outfile << "identified TLS handshake client hello" << std::endl;
-#endif
-                        stream_ref.tls.tls_client_hello = timestamp;
-                    }
-                    else if (stream_ref.tls.tls_server_hello == 0 && payload[5] == 0x02)
-                    {
-#ifdef DEBUG
-                        outfile << "identified TLS handshake server hello" << std::endl;
-#endif
-                        stream_ref.tls.tls_server_hello = timestamp;
-                    }
+                    if (wkst_ref.tls_client_hello == 0 && payload[5] == 0x01)
+                        wkst_ref.tls_client_hello = ts;
+
+                    else if (wkst_ref.tls_server_hello == 0 && payload[5] == 0x02)
+                        wkst_ref.tls_server_hello = ts;
                 }
             }
             else
                 stream_ref.tls.num_raw_tcp++;
         }
 
-#ifdef DEBUG
-        outfile << std::endl;
-#endif
-        // if (packet_idx == 150)
-        //     break;
-#endif
+        uint64_t src2dst_rtt, dst2src_rtt, variance;
+
+        for (unsigned ins_idx = 0; ins_idx < tuple2idx.size(); ins_idx++)
+        {
+
+            struct stream_stats &stream_ins = streams[ins_idx];
+            struct workstation &wkst_ins = workstations[ins_idx];
+
+            // basics
+            stream_ins.basics.duration = static_cast<double>(wkst_ins.end_ts - wkst_ins.start_ts) / 1e6;
+
+            // handshake
+            if (wkst_ins.handshake_req != 0 && wkst_ins.handshake_compl != 0)
+                stream_ins.handshakes.hanshake_duration = static_cast<double>(wkst_ins.handshake_compl - wkst_ins.handshake_req) / 1e6;
+
+            // performacne & throughput
+            stream_ins.throughputs.avg_tput = static_cast<double>(stream_ins.basics.src2dst_bytes + stream_ins.basics.dst2src_bytes) / stream_ins.basics.duration;
+            stream_ins.throughputs.src2dst_tput = static_cast<double>(stream_ins.basics.src2dst_bytes) / stream_ins.basics.duration;
+            stream_ins.throughputs.dst2src_tput = static_cast<double>(stream_ins.basics.dst2src_bytes) / stream_ins.basics.duration;
+            src2dst_rtt = std::accumulate(wkst_ins.rtts["src->dst"].begin(), wkst_ins.rtts["src->dst"].end(), 0ULL);
+            dst2src_rtt = std::accumulate(wkst_ins.rtts["dst->src"].begin(), wkst_ins.rtts["dst->src"].end(), 0ULL);
+            stream_ins.throughputs.rtt_avg = (wkst_ins.rtts["src->dst"].size() + wkst_ins.rtts["dst->src"].size()) ? static_cast<double>(src2dst_rtt + dst2src_rtt) / (wkst_ins.rtts["src->dst"].size() + wkst_ins.rtts["dst->src"].size()) : 0;
+            stream_ins.throughputs.src2dst_rtt_avg = (wkst_ins.rtts["src->dst"].size()) ? static_cast<double>(src2dst_rtt) / wkst_ins.rtts["src->dst"].size() : 0;
+            stream_ins.throughputs.dst2src_rtt_avg = (wkst_ins.rtts["dst->src"].size()) ? static_cast<double>(dst2src_rtt) / wkst_ins.rtts["dst->src"].size() : 0;
+
+            variance = 0;
+            if (wkst_ins.rtts["src->dst"].size() > 1)
+            {
+                for (const auto &rtt : wkst_ins.rtts["src->dst"])
+                    variance += (rtt - static_cast<uint64_t>(stream_ins.throughputs.src2dst_rtt_avg)) * (rtt - static_cast<uint64_t>(stream_ins.throughputs.src2dst_rtt_avg));
+
+                variance /= wkst_ins.rtts["src->dst"].size();
+            }
+            stream_ins.throughputs.src2dst_rtt_std = static_cast<double>(std::sqrt(variance)) / 1e6;
+
+            variance = 0;
+            if (wkst_ins.rtts["dst->src"].size() > 1)
+            {
+                for (const auto &rtt : wkst_ins.rtts["dst->src"])
+                    variance += (rtt - static_cast<uint64_t>(stream_ins.throughputs.dst2src_rtt_avg)) * (rtt - static_cast<uint64_t>(stream_ins.throughputs.dst2src_rtt_avg));
+
+                variance /= wkst_ins.rtts["dst->src"].size();
+            }
+            stream_ins.throughputs.dst2src_rtt_std = static_cast<double>(std::sqrt(variance)) / 1e6;
+            stream_ins.throughputs.rtt_avg /= 1e6;
+            stream_ins.throughputs.src2dst_rtt_avg /= 1e6;
+            stream_ins.throughputs.dst2src_rtt_avg /= 1e6;
+
+            // tls
+            if (wkst_ins.tls_client_hello != 0 && wkst_ins.tls_server_hello != 0)
+                stream_ins.tls.tls_handshake_duration = static_cast<double>(wkst_ins.tls_server_hello - wkst_ins.tls_client_hello) / 1e6;
+        }
     }
     pcap_close(handle);
 #ifdef CSV
@@ -309,15 +283,15 @@ void per_capture_tcp_stream(const std::string &file_path)
     // identifier
     logFile << "src_addr," << "dst_addr," << "sport," << "dport,";
     // basics
-    logFile << "src2dst_pkts," << "dst2src_pkts," << "src2dst_bytes," << "dst2src_bytes," << "start_ts," << "end_ts,";
+    logFile << "src2dst_pkts," << "dst2src_pkts," << "src2dst_bytes," << "dst2src_bytes," << "duration,";
     // connection-lev analysis
     logFile << "num_syn," << "num_ack," << "num_rst," << "num_fin,";
     // handshake info
-    logFile << "syn_reqs," << "syn_acks," << "ack_affs," << "handshake_req_ts," << "handshake_comp_ts,";
+    logFile << "syn_reqs," << "syn_acks," << "ack_affs," << "handshake_duration,";
     // performances and throughputs
-    logFile << "avg_tput," << "src2dst_tput," << "dst2src_tput," << "avg_rtt," << "src2dst_rtt," << "dst2src_rtt,";
+    logFile << "avg_tput," << "src2dst_tput," << "dst2src_tput," << "rtt_avg," << "src2dst_rtt_avg," << "dst2src_rtt_avg," << "src2dst_rtt_std," << "dst2src_rtt_std,";
     // tls
-    logFile << "num_raw_tcp," << "num_tls," << "tls_vers," << "tls_client_hello_ts," << "tls_server_hello_ts,";
+    logFile << "num_raw_tcp," << "num_tls," << "tls_vers," << "tls_handshake_duration,";
     // anomaly
     logFile << "num_retransmission," << "num_outoforder," << "num_duplicate_ack" << "\n";
 
@@ -335,25 +309,18 @@ void per_capture_tcp_stream(const std::string &file_path)
         logFile << stream_ins.identifier.src_addr << "," << stream_ins.identifier.dst_addr << "," << stream_ins.identifier.sport << "," << stream_ins.identifier.dport << ",";
 
         // basics
-        logFile << stream_ins.basics.src2dst_pkts << "," << stream_ins.basics.dst2src_pkts << "," << stream_ins.basics.src2dst_bytes << "," << stream_ins.basics.dst2src_bytes << "," << stream_ins.basics.start_ts << "," << stream_ins.basics.end_ts << ",";
+        logFile << stream_ins.basics.src2dst_pkts << "," << stream_ins.basics.dst2src_pkts << "," << stream_ins.basics.src2dst_bytes << "," << stream_ins.basics.dst2src_bytes << "," << stream_ins.basics.duration << ",";
 
         // connection-lev analysis
         logFile << stream_ins.flags.num_syn << "," << stream_ins.flags.num_ack << "," << stream_ins.flags.num_rst << "," << stream_ins.flags.num_fin << ",";
 
         // handshake info
-        logFile << stream_ins.handshakes.syn_reqs << "," << stream_ins.handshakes.syn_acks << "," << stream_ins.handshakes.ack_affs << "," << stream_ins.handshakes.handshake_req << "," << stream_ins.handshakes.handshake_compl << ",";
+        logFile << stream_ins.handshakes.syn_reqs << "," << stream_ins.handshakes.syn_acks << "," << stream_ins.handshakes.ack_affs << "," << stream_ins.handshakes.hanshake_duration << ",";
 
-        // performances and throughputs
-        ts_duration = stream_ins.basics.end_ts - stream_ins.basics.start_ts;
-        avg_tput = static_cast<float>(stream_ins.basics.src2dst_bytes + stream_ins.basics.dst2src_bytes) / ts_duration;
-        src2dst_tput = static_cast<float>(stream_ins.basics.src2dst_bytes) / ts_duration;
-        dst2src_tput = static_cast<float>(stream_ins.basics.dst2src_bytes) / ts_duration;
-        src2dst_rtt = std::accumulate(wkst_ins.rtts["src->dst"].begin(), wkst_ins.rtts["src->dst"].end(), 0);
-        dst2src_rtt = std::accumulate(wkst_ins.rtts["dst->src"].begin(), wkst_ins.rtts["dst->src"].end(), 0);
-        avg_rtt = static_cast<float>(src2dst_rtt + dst2src_rtt) / (wkst_ins.rtts["src->dst"].size() + wkst_ins.rtts["dst->src"].size());
-        src2dst_rtt = static_cast<float>(src2dst_rtt) / wkst_ins.rtts["src->dst"].size();
-        dst2src_rtt = static_cast<float>(dst2src_rtt) / wkst_ins.rtts["dst->src"].size();
-        logFile << avg_rtt << "," << src2dst_tput << "," << dst2src_tput << "," << avg_rtt << "," << src2dst_rtt << "," << dst2src_rtt << ",";
+        // performance
+        logFile << stream_ins.throughputs.avg_tput << "," << stream_ins.throughputs.src2dst_tput << "," << stream_ins.throughputs.dst2src_tput << ",";
+        logFile << stream_ins.throughputs.rtt_avg << "," << stream_ins.throughputs.src2dst_rtt_avg << "," << stream_ins.throughputs.dst2src_rtt_avg << "," << stream_ins.throughputs.src2dst_rtt_std << "," << stream_ins.throughputs.dst2src_rtt_std << ",";
+
         // tls
         logFile << stream_ins.tls.num_raw_tcp << "," << stream_ins.tls.num_tls << ",[";
         for (auto it = stream_ins.tls.tls_ver.begin(); it != stream_ins.tls.tls_ver.end(); ++it)
@@ -363,7 +330,7 @@ void per_capture_tcp_stream(const std::string &file_path)
             logFile << static_cast<int>(*it); // convert int8_t to int to avoid weird characters
         }
         logFile << "],";
-        logFile << stream_ins.tls.tls_client_hello << "," << stream_ins.tls.tls_server_hello << ",";
+        logFile << stream_ins.tls.tls_handshake_duration << ",";
         // anomaly
         logFile << stream_ins.anormalies.num_retr << "," << stream_ins.anormalies.num_o3 << "," << stream_ins.anormalies.num_dupack << "\n";
     }

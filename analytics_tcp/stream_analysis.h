@@ -37,11 +37,21 @@ struct workstation
 {
     enum handshake_status status_handshake = HANDSHAKE_INIT;
     std::set<uint32_t> syn_ack_seqnums;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, std::tuple<uint64_t, bool>>> packet_ts{{"src->dst", {}}, {"dst->src", {}}};
+    std::unordered_map<std::string, std::unordered_map<uint32_t, std::tuple<uint64_t, uint32_t>>> packet_ts{{"src->dst", {}}, {"dst->src", {}}};
     std::unordered_map<std::string, std::set<uint32_t>> seqs_sent{{"src->dst", {}}, {"dst->src", {}}};
-    std::unordered_map<std::string, std::vector<uint32_t>> rtts{{"src->dst", {}}, {"dst->src", {}}};
+    std::unordered_map<std::string, std::vector<uint64_t>> rtts{{"src->dst", {}}, {"dst->src", {}}};
+    std::unordered_map<std::string, std::vector<uint16_t>> wins{{"src->dst" : {}, "dst->src" : {}}};
     std::unordered_map<std::string, uint32_t> max_seqnums{{"src->dst", 0}, {"dst->src", 0}};
     bool tls_direction;
+
+    uint64_t start_ts = 0;
+    uint64_t end_ts = 0;
+
+    uint64_t handshake_req = 0;
+    uint64_t handshake_compl = 0;
+
+    uint64_t tls_client_hello = 0;
+    uint64_t tls_server_hello = 0;
 };
 
 struct stream_stats
@@ -63,8 +73,7 @@ struct stream_stats
         uint64_t src2dst_bytes = 0;
         uint64_t dst2src_bytes = 0;
 
-        uint64_t start_ts = 0;
-        uint64_t end_ts = 0;
+        double duration = 0;
     } basics;
 
     // connection-level analysis
@@ -82,23 +91,28 @@ struct stream_stats
         uint32_t syn_reqs = 0;
         uint32_t syn_acks = 0;
         uint32_t ack_affs = 0;
-        /* UNUSED
-         uint32_t rst_reqs = 0;
-         uint32_t fin_reqs = 0;*/
-        uint64_t handshake_req = 0;
-        uint64_t handshake_compl = 0;
+
+        double hanshake_duration = 0.0;
     } handshakes;
 
     // performances and throughputs
     struct throughput_stats
     {
+
         uint32_t avg_tput;     // Average throughput per stream
         uint32_t src2dst_tput; // Per-direction throughput
         uint32_t dst2src_tput;
 
-        uint64_t avg_rrt; // average Round-Trip Time (RTT)
-        uint64_t src2dst_rtt;
-        uint64_t dst2src_rtt;
+        double rtt_avg; // average Round-Trip Time (RTT)
+        double src2dst_rtt_avg;
+        double dst2src_rtt_avg;
+
+        double src2dst_rtt_std;
+        double dst2src_rtt_std;
+
+        uint16_t src2dst_win_avg;
+        uint16_t dst2src_win_avg;
+        uint16_t win_avg;
     } throughputs;
 
     // TLS-Specific Behavior
@@ -109,15 +123,7 @@ struct stream_stats
         std::set<int8_t> tls_ver;
 
         // TLS handshake
-        uint64_t tls_client_hello = 0;
-        uint64_t tls_server_hello = 0;
-
-        /* UNUSED
-        // Certificate Info
-        std::string cert_domain;
-        std::string cert_expiration;
-        std::string cert_issuer;
-        */
+        double tls_handshake_duration;
     } tls;
 
     // Anomaly Detection & Traffic Characterization

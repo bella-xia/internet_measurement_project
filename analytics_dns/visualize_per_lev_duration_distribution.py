@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 if __name__ == '__main__':
-    ROOT_DIR = '../data/dns_queries'
+    ROOT_DIR = 'data'
     lev_bound = 0
 
     files = os.listdir(ROOT_DIR)
@@ -36,8 +36,8 @@ if __name__ == '__main__':
    
     x = np.arange(lev_bound)
     labels = [f"lev {idx}" for idx in x]
-    width = 0.25
-    fig, ax = plt.subplots()
+    width = 0.15
+    fig, ax = plt.subplots(figsize=(10, 8))
     
     for idx, (ip_tested, latency_instance) in enumerate(latency_dict_data):
         mean_latencies, stdev_latencies = [], []
@@ -57,4 +57,3 @@ if __name__ == '__main__':
     ax.legend()
     
     plt.savefig("images/dns_per_lev_stats.png")
-    exit(0)

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 if __name__ == '__main__':
-    ROOT_DIR = '../data/dns_queries'
+    ROOT_DIR = 'data'
     id2tld, tld2id = {}, {}
     id_incrementals = 0
 
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     
     labels = [k for k, _ in tld2id.items()]
     x = np.arange(len(labels))
-    width = 0.25
-    fig, ax = plt.subplots()
+    width = 0.15
+    fig, ax = plt.subplots(figsize=(20, 12))
     
     for idx, (ip_tested, latency_instance) in enumerate(latency_dict_data):
         mean_latencies, stdev_latencies = [], []

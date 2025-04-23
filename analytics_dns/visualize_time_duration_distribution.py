@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    ROOT_DIR = '../data/dns_queries'
+    ROOT_DIR = 'data'
 
     files = os.listdir(ROOT_DIR)
     ip_tested = [file.split('_')[2] for file in files]
