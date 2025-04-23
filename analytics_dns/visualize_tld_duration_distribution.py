@@ -8,8 +8,8 @@ if __name__ == '__main__':
     id2tld, tld2id = {}, {}
     id_incrementals = 0
 
-    files = os.listdir(ROOT_DIR)
-    ip_tested = [file.split('_')[2] for file in files if file.endswith(".json")]
+    files = [file for file in os.listdir(ROOT_DIR)  if file.endswith(".json")]
+    ip_tested = [file.split('_')[2] for file in files]
     latency_dict_data = []
     mean_latencies, stdev_latencies, labels = [], [], []
     
