@@ -154,6 +154,7 @@ void per_capture_tcp_stream(const std::string &file_path)
         // performances and throughputs & anomalies
         uint32_t seq_num = ntohl(tcp_hdr->seq);
         uint32_t ackseq_num = ntohl(tcp_hdr->ack_seq);
+        wkst_ref.wins[d_ident].push_back(ntohs(tcp_hdr->window));
         if (p_flag & ACK_BIT)
         {
             auto it = wkst_ref.packet_ts[ackd_ident].find(ackseq_num);
@@ -222,6 +223,7 @@ void per_capture_tcp_stream(const std::string &file_path)
         }
 
         uint64_t src2dst_rtt, dst2src_rtt, variance;
+        uint32_t src2dst_win, dst2src_win;
 
         for (unsigned ins_idx = 0; ins_idx < tuple2idx.size(); ins_idx++)
         {
@@ -269,6 +271,12 @@ void per_capture_tcp_stream(const std::string &file_path)
             stream_ins.throughputs.src2dst_rtt_avg /= 1e6;
             stream_ins.throughputs.dst2src_rtt_avg /= 1e6;
 
+            src2dst_win = std::accumulate(wkst_ins.wins["src->dst"].begin(), wkst_ins.wins["src->dst"].end(), 0);
+            dst2src_win = std::accumulate(wkst_ins.wins["dst->src"].begin(), wkst_ins.wins["dst->src"].end(), 0);
+            stream_ins.throughputs.win_avg = (wkst_ins.wins["src->dst"].size() + wkst_ins.wins["dst->src"].size()) ? static_cast<float>(src2dst_win + dst2src_win) / (wkst_ins.wins["src->dst"].size() + wkst_ins.wins["dst->src"].size()) : 0;
+            stream_ins.throughputs.src2dst_win_avg = (wkst_ins.wins["src->dst"].size()) ? static_cast<float>(src2dst_win) / wkst_ins.wins["src->dst"].size() : 0;
+            stream_ins.throughputs.dst2src_win_avg = (wkst_ins.wins["dst->src"].size()) ? static_cast<float>(dst2src_win) / wkst_ins.wins["dst->src"].size() : 0;
+
             // tls
             if (wkst_ins.tls_client_hello != 0 && wkst_ins.tls_server_hello != 0)
                 stream_ins.tls.tls_handshake_duration = static_cast<double>(wkst_ins.tls_server_hello - wkst_ins.tls_client_hello) / 1e6;
@@ -289,7 +297,9 @@ void per_capture_tcp_stream(const std::string &file_path)
     // handshake info
     logFile << "syn_reqs," << "syn_acks," << "ack_affs," << "handshake_duration,";
     // performances and throughputs
-    logFile << "avg_tput," << "src2dst_tput," << "dst2src_tput," << "rtt_avg," << "src2dst_rtt_avg," << "dst2src_rtt_avg," << "src2dst_rtt_std," << "dst2src_rtt_std,";
+    logFile << "avg_tput," << "src2dst_tput," << "dst2src_tput,";
+    logFile << "rtt_avg," << "src2dst_rtt_avg," << "dst2src_rtt_avg," << "src2dst_rtt_std," << "dst2src_rtt_std,";
+    logFile << "window_avg," << "src2dst_window_avg," << "dst2src_window_avg,";
     // tls
     logFile << "num_raw_tcp," << "num_tls," << "tls_vers," << "tls_handshake_duration,";
     // anomaly
@@ -320,6 +330,7 @@ void per_capture_tcp_stream(const std::string &file_path)
         // performance
         logFile << stream_ins.throughputs.avg_tput << "," << stream_ins.throughputs.src2dst_tput << "," << stream_ins.throughputs.dst2src_tput << ",";
         logFile << stream_ins.throughputs.rtt_avg << "," << stream_ins.throughputs.src2dst_rtt_avg << "," << stream_ins.throughputs.dst2src_rtt_avg << "," << stream_ins.throughputs.src2dst_rtt_std << "," << stream_ins.throughputs.dst2src_rtt_std << ",";
+        logFile << stream_ins.throughputs.win_avg << "," << stream_ins.throughputs.src2dst_win_avg << "," << stream_ins.throughputs.dst2src_win_avg << ",";
 
         // tls
         logFile << stream_ins.tls.num_raw_tcp << "," << stream_ins.tls.num_tls << ",[";

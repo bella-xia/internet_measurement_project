@@ -40,7 +40,7 @@ struct workstation
     std::unordered_map<std::string, std::unordered_map<uint32_t, std::tuple<uint64_t, uint32_t>>> packet_ts{{"src->dst", {}}, {"dst->src", {}}};
     std::unordered_map<std::string, std::set<uint32_t>> seqs_sent{{"src->dst", {}}, {"dst->src", {}}};
     std::unordered_map<std::string, std::vector<uint64_t>> rtts{{"src->dst", {}}, {"dst->src", {}}};
-    std::unordered_map<std::string, std::vector<uint16_t>> wins{{"src->dst" : {}, "dst->src" : {}}};
+    std::unordered_map<std::string, std::vector<uint16_t>> wins{{"src->dst", {}}, {"dst->src", {}}};
     std::unordered_map<std::string, uint32_t> max_seqnums{{"src->dst", 0}, {"dst->src", 0}};
     bool tls_direction;
 

@@ -9,7 +9,7 @@ if __name__ == '__main__':
     id_incrementals = 0
 
     files = os.listdir(ROOT_DIR)
-    ip_tested = [file.split('_')[2] for file in files]
+    ip_tested = [file.split('_')[2] for file in files if file.endswith(".json")]
     latency_dict_data = []
     mean_latencies, stdev_latencies, labels = [], [], []
     
@@ -22,20 +22,21 @@ if __name__ == '__main__':
         total_idx = 0
         for dn, record in json_data.items():
             total_latency = 0
-            idx = 0
+        
             tld_name = None
             if total_idx == 11:
                 exit(0)
             for lev_name, aux_data in record.items():
                 total_latency += aux_data.get("querytime", 0)
-                if idx == 2:
-                    tld_name = lev_name.split('.')[0]
-                    if tld_name not in tld2id:
-                        tld2id[tld_name] = id_incrementals
-                        id2tld[id_incrementals] = tld_name
-                        id_incrementals += 1
+               
+                tld_name = lev_name.split('.')[1]
+
+                if tld_name not in tld2id:
+                    tld2id[tld_name] = id_incrementals
+                    id2tld[id_incrementals] = tld_name
+                    id_incrementals += 1
                 
-                idx += 1
+                break
             
             if tld_name:
                 latency_counts.setdefault(tld2id[tld_name], [])
@@ -47,7 +48,7 @@ if __name__ == '__main__':
     labels = [k for k, _ in tld2id.items()]
     x = np.arange(len(labels))
     width = 0.15
-    fig, ax = plt.subplots(figsize=(20, 12))
+    fig, ax = plt.subplots(figsize=(30, 12))
     
     for idx, (ip_tested, latency_instance) in enumerate(latency_dict_data):
         mean_latencies, stdev_latencies = [], []

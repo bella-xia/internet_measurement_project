@@ -6,7 +6,7 @@ if __name__ == '__main__':
     ROOT_DIR = 'data'
 
     files = os.listdir(ROOT_DIR)
-    ip_tested = [file.split('_')[2] for file in files]
+    ip_tested = [file.split('_')[2] for file in files if file.endswith(".json")]
     mean_latencies, stdev_latencies, labels = [], [], []
     
     for file, ip_tested in zip(files, ip_tested):

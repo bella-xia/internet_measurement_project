@@ -5,7 +5,7 @@
 #include <iostream>
 #include "stream_analysis.h"
 
-// #define MULTI_THREAD
+#define MULTI_THREAD
 
 namespace fs = std::filesystem;
 
