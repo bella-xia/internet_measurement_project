@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 if __name__ == '__main__':
-    ROOT_DIR = 'data'
+    ROOT_DIR = 'analytics_dns/data'
     id2tld, tld2id = {}, {}
+    tld2counts = defaultdict(int)
     id_incrementals = 0
 
     files = [file for file in os.listdir(ROOT_DIR)  if file.endswith(".json")]
@@ -37,22 +38,26 @@ if __name__ == '__main__':
                     id_incrementals += 1
                 
                 break
+
             
             if tld_name:
                 latency_counts.setdefault(tld2id[tld_name], [])
                 latency_counts[tld2id[tld_name]].append(total_latency)
+                tld2counts[tld_name] += 1
 
 
         latency_dict_data.append((ip_tested, latency_counts.copy()))
     
-    labels = [k for k, _ in tld2id.items()]
+    labels = [k for k, _ in tld2id.items() if tld2counts[k] > 5]
+    idx_arr = [v for k, v in tld2id.items() if tld2counts[k] > 5]
     x = np.arange(len(labels))
     width = 0.15
     fig, ax = plt.subplots(figsize=(30, 12))
-    
+
+
     for idx, (ip_tested, latency_instance) in enumerate(latency_dict_data):
         mean_latencies, stdev_latencies = [], []
-        for i in x:
+        for i in idx_arr:
             mean_latencies.append(statistics.mean(latency_instance[i]) if len(latency_instance[i]) > 0 else 0)
             stdev_latencies.append(statistics.stdev(latency_instance[i]) if len(latency_instance[i]) > 1 else 0)
     
@@ -64,10 +69,10 @@ if __name__ == '__main__':
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.axhline(0, color='grey', linewidth=0.8)
-    # ax.set_ylim(0, max(mean_latencies) + max(stdev_latencies) * 1.1)  # Adjust y-axis limit
+    ax.set_ylim(0, 500)  # Adjust y-axis limit
     ax.legend()
     
-    plt.savefig("images/dns_tld_stats.png")
+    plt.savefig("analytics_dns/images/dns_tld_stats.png")
     exit(0)
         
 

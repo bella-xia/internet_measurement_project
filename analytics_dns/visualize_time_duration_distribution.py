@@ -3,8 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    ROOT_DIR = 'data'
+    ROOT_DIR = 'analytics_dns/data'
 
+    files = [file for file in os.listdir(ROOT_DIR)  if file.endswith(".json")]
+    ip_tested = [file.split('_')[2] for file in files]
+    
     files = [file for file in os.listdir(ROOT_DIR)  if file.endswith(".json")]
     ip_tested = [file.split('_')[2] for file in files]
     mean_latencies, stdev_latencies, labels = [], [], []
@@ -41,7 +44,7 @@ if __name__ == '__main__':
     ax.axhline(0, color='grey', linewidth=0.8)
     ax.set_ylim(0, max(mean_latencies) + max(stdev_latencies) * 1.1)  # Adjust y-axis limit
     
-    plt.savefig("images/dns_overall_stats.png")
+    plt.savefig("analytics_dns/images/dns_overall_stats.png")
         
 
             

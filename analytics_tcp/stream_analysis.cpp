@@ -12,7 +12,7 @@
 
 #include "stream_analysis.h"
 
-#define CSV
+#define PRINT
 
 std::mutex log_mutex;
 static bool is_private_addr(uint32_t ip_addr);
@@ -52,7 +52,7 @@ void per_capture_tcp_stream(const std::string &file_path)
             firstTs = header.ts.tv_sec;
 
         lastTs = header.ts.tv_sec;
-
+#ifdef ANALYTICS
         const struct ether_header *eth = (struct ether_header *)packet;
         if (ntohs(eth->ether_type) != ETHERTYPE_IP)
             continue;
@@ -281,6 +281,7 @@ void per_capture_tcp_stream(const std::string &file_path)
             if (wkst_ins.tls_client_hello != 0 && wkst_ins.tls_server_hello != 0)
                 stream_ins.tls.tls_handshake_duration = static_cast<double>(wkst_ins.tls_server_hello - wkst_ins.tls_client_hello) / 1e6;
         }
+#endif
     }
     pcap_close(handle);
 #ifdef CSV
