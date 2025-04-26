@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    df_dir = "data/ip_to_asn_domain_mapping.csv"
+    df_dir = "data/ip_geoloc_domain_mapping.csv"
     df = pd.read_csv(df_dir)
     
     # heatmap visualization
@@ -20,23 +20,25 @@ if __name__ == "__main__":
     heatmap_data = heatmap_data.reindex(columns=expected_asn_cidr_order)
     
     plt.figure(figsize=(20, 10))
-    sns.heatmap(heatmap_data, annot=False, cmap="viridis")
-    plt.title("Total Packets Transferred per ASN and IP Prefix")
+    log_heatmap_data = np.log10(heatmap_data.replace(0, np.nan))
+    sns.heatmap(log_heatmap_data, annot=False, cmap="viridis")
+    plt.title("Total Packets Transferred per ASN and IP Prefix [Log 10 Scale]")
     plt.xticks(rotation=45)
     plt.yticks(rotation=30)
     plt.grid()
-    plt.savefig("images/heatmap_ordered_by_packet.png")
+    plt.savefig("images/log_heatmap_ordered_by_packet.png")
     
     heatmap_data = aggregated_data.pivot(index='asn_description', columns='asn_cidr', values='total_byte_transferred')
     heatmap_data = heatmap_data.reindex(columns=expected_asn_cidr_order)
     
     plt.figure(figsize=(20, 10))
-    sns.heatmap(heatmap_data, annot=False, cmap="viridis")
-    plt.title("Total Bytes Transferred per ASN and IP Prefix")
+    log_heatmap_data = np.log10(heatmap_data.replace(0, np.nan))
+    sns.heatmap(log_heatmap_data, annot=False, cmap="viridis")
+    plt.title("Total Bytes Transferred per ASN and IP Prefix [Log 10 Scale]")
     plt.xticks(rotation=45)
     plt.yticks(rotation=30)
     plt.grid()
-    plt.savefig("images/heatmap_ordered_by_byte.png")
+    plt.savefig("images/log_heatmap_ordered_by_byte.png")
     
     # Shannon-Wiener Index visualization
     def shannon_wiener_index(counts):

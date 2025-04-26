@@ -41,7 +41,7 @@ static void per_packet_helper(unsigned char *user_data, const struct pcap_pkthdr
 void conversation_length_analysis(const std::pair<std::string, std::string> &pcap_meta)
 {
     const std::string pcap_path = pcap_meta.first, local_ip = pcap_meta.second;
-    const std::string delimiter = ".../data/";
+    const std::string delimiter = "../data/pcap/";
     size_t pos = pcap_path.find(delimiter, 0);
     const std::string pcap_filename = (pos != std::string::npos) ? pcap_path.substr(pos + delimiter.length()) : pcap_path;
     const std::string output_csv_dir = "data/convbyte/" + pcap_filename + ".csv";
@@ -134,7 +134,8 @@ static void per_packet_helper(unsigned char *user_data,
     std::string dst_ip = inet_ntoa(ip_header->ip_dst);
 
     // external server sending packets to end host
-    if (std::strcmp(dst_ip.c_str(), local_ip.c_str()) == 0 && !is_private(src_ip))
+    if (is_private(dst_ip) && !is_private(src_ip))
+    // std::strcmp(dst_ip.c_str(), local_ip.c_str()) == 0 && !is_private(src_ip))
     {
         auto result = conversations.emplace(src_ip, pcap_metadata_t{src_ip, "", 0, 1, 0, header->len});
         if (!result.second)
@@ -145,7 +146,8 @@ static void per_packet_helper(unsigned char *user_data,
     }
 
     // end host sending packets to external server
-    else if (std::strcmp(src_ip.c_str(), local_ip.c_str()) == 0 && !is_private(dst_ip))
+    else if (is_private(src_ip) && !is_private(dst_ip))
+    // std::strcmp(src_ip.c_str(), local_ip.c_str()) == 0
     {
         auto result = conversations.emplace(dst_ip, pcap_metadata_t{dst_ip, "", 1, 0, header->len, 0});
         if (!result.second)

@@ -11,6 +11,8 @@
 #include <iostream>
 #include <future>
 
+#define MAX_CONCURRENCY 5
+
 namespace fs = std::filesystem;
 
 void get_local_ip_config(std::map<std::string, std::string> &local_host_config)
@@ -40,29 +42,34 @@ int main()
     std::map<std::string, std::string> local_host_config{};
     get_local_ip_config(local_host_config);
 
-    std::string folder = "../data";
+    std::string folder = "../data/pcap";
     std::vector<std::pair<std::string, std::string>> pcap_files;
 
     for (const auto &entry : fs::directory_iterator(folder))
     {
         if (entry.is_regular_file() && entry.path().extension().empty())
-        {
-            pcap_files.push_back(std::make_pair(entry.path().string(), local_host_config[entry.path().string().substr(folder.length() + 1)]));
-        }
+            pcap_files.push_back(
+                std::make_pair(
+                    entry.path().string(),
+                    local_host_config[entry.path().string().substr(folder.length() + 1)]));
     }
 
     std::vector<std::future<void>> futures;
 
     for (const auto &file : pcap_files)
     {
-        futures.push_back(std::async(std::launch::async, timestamp_helper, file));
+        if (futures.size() >= MAX_CONCURRENCY)
+        {
+            futures.front().get();          // Wait for the first to complete
+            futures.erase(futures.begin()); // Remove it from the list
+        }
+        futures.push_back(std::async(std::launch::async, conversation_length_analysis, file));
         // conversation_length_analysis, file));
+        // extract_timestamp, std::get<0>(file)));
     }
 
     for (auto &fut : futures)
-    {
         fut.get();
-    }
 
     return 0;
 }

@@ -23,8 +23,8 @@ def get_city_from_ip(ip_address, database_path):
         return None
 
 if __name__ == "__main__":
-    database_file = "/GeoLite2-City_20250221/GeoLite2-City_20250221/GeoLite2-City.mmdb"
-    root_dir = ".../analytics_pcap/data/convoy/byte"
+    database_file = "../GeoLite2-City_20250221/GeoLite2-City.mmdb"
+    root_dir = "../data/convbyte"
     dict_data = {}
     
     csv_filenames = os.listdir(root_dir)

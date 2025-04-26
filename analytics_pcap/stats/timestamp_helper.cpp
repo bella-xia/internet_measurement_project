@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <set>
 // used for synchronization between threads
@@ -43,8 +44,10 @@ void extract_timestamp(const std::string &pcap_path)
     {
         int time_diff = static_cast<int>((*timestamps.rbegin() - *timestamps.begin()) / 60);
         std::lock_guard<std::mutex> lock(log_mutex); // used to restrict I/O
-        std::cout << "The difference between first and last instance in "
-                  << fs::path(pcap_path).filename().string()
-                  << " is " << time_diff << " minutes\n";
+        std::ofstream log_file("logger.txt", std::ios::app);
+        log_file << "The difference between first and last instance in "
+                 << fs::path(pcap_path).filename().string()
+                 << " is " << time_diff << " minutes\n";
+        log_file.close();
     }
 }

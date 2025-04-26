@@ -20,16 +20,16 @@ CXXFLAGS = -g -Wall -std=c++17
 all : convbyte
 
 timestamp: $(CXX_MAKE_TIMESTAMP_OBJS)
-	$(CXX) -o $@ $(CXX_USE_TIMESTAMP_OBJS)
+	$(CXX) -o $@ $(CXX_MAKE_TIMESTAMP_OBJS)
 
 convbyte: $(CXX_MAKE_CONVBYTE_OBJS)
-	$(CXX) -o $@ $(CXX_USE_CONVBYTE_OBJS) -lpcap
+	$(CXX) -o $@ $(CXX_MAKE_CONVBYTE_OBJS) -lpcap
 
 dns: $(CXX_MAKE_DNS_OBJS)
 	$(CXX) -o $@ $(CXX_USE_DNS_OBJS) -lpcap
 
 clean :
-	rm -f *.o stats/*.o main timestamp convbyte dns depend.mak perf.*
+	rm -f *.o stats/*.o utils/*.o main timestamp convbyte dns depend.mak perf.*
 
 depend :
 	$(CXX) $(CXXFLAGS) -M $(CXX_SRCS) >> depend.mak
