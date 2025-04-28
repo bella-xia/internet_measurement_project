@@ -21,9 +21,7 @@ void get_local_ip_config(std::map<std::string, std::string> &local_host_config)
     std::ifstream file(config_csv);
 
     if (!file.is_open())
-    {
         std::cerr << "Failed to open file " << config_csv << std::endl;
-    }
 
     std::string line;
 
@@ -60,12 +58,10 @@ int main()
     {
         if (futures.size() >= MAX_CONCURRENCY)
         {
-            futures.front().get();          // Wait for the first to complete
-            futures.erase(futures.begin()); // Remove it from the list
+            futures.front().get();
+            futures.erase(futures.begin());
         }
         futures.push_back(std::async(std::launch::async, conversation_length_analysis, file));
-        // conversation_length_analysis, file));
-        // extract_timestamp, std::get<0>(file)));
     }
 
     for (auto &fut : futures)

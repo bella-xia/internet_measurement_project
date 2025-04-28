@@ -3,13 +3,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 if __name__ == "__main__":
-    root_dir = "../data/convbyte"
-    traffic_of_interest = {"streaming-netflix": [], 
-                           "remoteserver-colab": [], 
-                           "videocall-wechat": [], 
-                           "streaming-youtube": [], 
-                           "remoteserver-roboflow": [], 
-                           "videocall-tecent": []}
+    root_dir = "../analytics_pcap/data/convbyte"
+    traffic_of_interest = {
+        "streaming-netflix": [], 
+        "remoteserver-colab": [], 
+        "videocall-wechat": [], 
+        "streaming-youtube": [], 
+        "remoteserver-roboflow": [], 
+        "videocall-tencent": []
+        }
     for instance in os.listdir(root_dir):
         header = instance.split("_")[0]
         if header in traffic_of_interest:
@@ -18,6 +20,8 @@ if __name__ == "__main__":
     full_img_dict = {}
     domain_list = []
     max_packet, max_byte = 0, 0
+
+    print(traffic_of_interest)
     
     for identifier, csv_filenames in traffic_of_interest.items():
 
@@ -34,6 +38,8 @@ if __name__ == "__main__":
         for csv_filename in csv_filenames:
             full_path = os.path.join(root_dir, csv_filename)
             df = pd.read_csv(full_path)
+            # print(df.head())
+            # exit(0)
             df['top_second_domain_name'] = df['domain_name'].map(lambda x : '.'.join(x.split('.')[-2:]))
             unique_domain_names = list(df['top_second_domain_name'].unique())
             for domain_name in unique_domain_names:

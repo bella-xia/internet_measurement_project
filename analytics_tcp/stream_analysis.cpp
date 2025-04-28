@@ -12,7 +12,8 @@
 
 #include "stream_analysis.h"
 
-#define PRINT
+#define ANALYTICS
+#define CSV
 
 std::mutex log_mutex;
 static bool is_private_addr(uint32_t ip_addr);

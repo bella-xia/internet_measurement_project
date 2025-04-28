@@ -3,6 +3,7 @@ from parser import TraceRouteParser
 import pandas as pd
 import matplotlib.pyplot as plt
 import ipaddress
+from tqdm import tqdm
 
 def is_private_or_invalid_ip(ip):
     if not ip:
@@ -13,28 +14,28 @@ def is_private_or_invalid_ip(ip):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--mode", type=str, default="traceroute")
-    parser.add_argument("--trial", type=str, default="cdn_cloud")
-    parser.add_argument("--hostname", type=str, default="192.168.1.15")
+    parser.add_argument("--mode", type=str, default="trace")
+    parser.add_argument("--trial", type=str, default="all")
+    parser.add_argument("--hostname", type=str, default="172.24.45.125")
     parser.add_argument("--metadata_dir", type=str, default="../analytics_dframe/data/ip_geoloc_domain_mapping.csv")
     
     args = parser.parse_args()
     
-    logger_dir = f"./scamper_log/{args.trial}_{args.mode}_log.out"
+    logger_dir = f"scamper_log/{args.trial}_{args.mode}_log.out"
     output_dir_01 = f"images/{args.trial}_{args.mode}_data_statistics_most_used.png" 
     output_dir_02 = f"images/{args.trial}_{args.mode}_data_statistics_all.png"
     
     with open(logger_dir, 'r') as f:
         log = f.read()
     
-    parser_module = TraceRouteParser if args.mode == "traceroute" else None
+    parser_module = TraceRouteParser if args.mode == "trace" else None
     ping_parser = parser_module(log, hostname=args.hostname)
     
     metadata_df = pd.read_csv(args.metadata_dir)
     unique_asns = metadata_df['asn_description'].unique()
     asn_dict = {}
     
-    for unique_asn in unique_asns:
+    for unique_asn in tqdm(unique_asns):
         filtered_df = metadata_df[metadata_df['asn_description'] == unique_asn].sort_values(by="total_byte_transferred", ascending=False)
         queriable_ips = filtered_df.iloc[:5]['ip_addr']
         ping_results = []
@@ -64,13 +65,13 @@ if __name__ == '__main__':
                 
                 x_limits = ax.get_xlim()
 
-                ax.fill_between(x=(avg_total_latency - stdev_total_latency, 
-                            avg_total_latency + stdev_total_latency), x1=x_limits[0], x2=x_limits[1], color='lightblue', alpha=0.5)
+                ax.fill_between(y1=avg_total_latency - stdev_total_latency, 
+                            y2=avg_total_latency + stdev_total_latency, x=x_limits, color='lightblue', alpha=0.5)
                 
                 ax.axhline(y=avg_total_latency, color='red', linestyle='--', linewidth=2, label='average total latency')
                 ax.set_xticks(x_pos)
                 ax.set_xticklabels(ip_list)
-                ax.tick_params(axis='x', labelrotation=15, labelsize=8)
+                ax.tick_params(axis='x', labelrotation=90, labelsize=8)
                 ax.set_xlabel("IP Hop on Path")
                 ax.set_ylabel("Latency (ms)")
                 ax.legend()

@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-i", "--input_dir", type=str, default="data/Tranco_first_1000.csv")
+    parser.add_argument("-i", "--input_dir", type=str, default="../data/Tranco_first_1000.csv")
     parser.add_argument("-n", "--topn", type=int, default=5)
     parser.add_argument("-m", "--mode", type=str, required=True)
     args = parser.parse_args()
@@ -97,5 +97,5 @@ if __name__ == '__main__':
         
         
         for k, v in result.items():
-            with open(f"analytics_dns/Tranco_top{args.topn}_{k}_server_dns_query.json", "w") as f:
+            with open(f"Tranco_top{args.topn}_{k}_server_dns_query.json", "w") as f:
                 json.dump(v, f, indent=4)

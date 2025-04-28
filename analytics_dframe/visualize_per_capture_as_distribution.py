@@ -3,14 +3,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 if __name__ == "__main__":
-    root_dir = "../data/convbyte"
+    root_dir = "../analytics_pcap/data/convbyte"
     as_metadata_info_dir = "data/ip_geoloc_domain_mapping.csv"
     traffic_of_interest = {"streaming-netflix": [], 
                            "remoteserver-colab": [], 
                            "videocall-wechat": [], 
                            "streaming-youtube": [], 
                            "remoteserver-roboflow": [], 
-                           "streaming-bilibili": []}
+                          "videocall-tencent": []
+                          }
     for instance in os.listdir(root_dir):
         header = instance.split("_")[0]
         if header in traffic_of_interest:
@@ -76,16 +77,6 @@ if __name__ == "__main__":
                     data_per_asn_description['byte_from'].append(instance['byte_from'])
                     data_per_asn_description['byte_to'].append(instance['byte_to'])
 
-        # local_max_packet = max(
-        #     max(data_per_asn['packet_from']) if len(data_per_asn['packet_from']) > 0 else -1,
-        #     max(data_per_asn['packet_to']) if len(data_per_asn['packet_to']) > 0 else -1
-        # )
-        # local_max_byte = max(
-        #     max(data_per_asn['byte_from']) if len(data_per_asn['byte_from']) > 0 else -1,
-        #     max(data_per_asn['byte_to']) if len(data_per_asn['byte_to']) > 0 else -1
-        # )
-        # max_packet = max_packet if max_packet > local_max_packet else local_max_packet
-        # max_byte = max_byte if max_byte > local_max_byte else local_max_byte
         full_asn_img_dict[identifier] = ({k: [x / len(csv_filenames) for x in v] for k, v in data_per_asn.items()}, 
                                          asn_list)
         full_asn_description_img_dict[identifier] = ({k: [x / len(csv_filenames) for x in v] for k, v in data_per_asn_description.items()}, 

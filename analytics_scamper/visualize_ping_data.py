@@ -7,13 +7,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--mode", type=str, default="ping")
-    parser.add_argument("--trial", type=str, default="cdn_cloud")
-    parser.add_argument("--hostname", type=str, default="192.168.1.15")
+    parser.add_argument("--trial", type=str, default="all")
+    parser.add_argument("--hostname", type=str, default="172.24.45.125")
     parser.add_argument("--metadata_dir", type=str, default="../analytics_dframe/data/ip_geoloc_domain_mapping.csv")
     
     args = parser.parse_args()
     
-    logger_dir = f"../scamper_log/{args.trial}_{args.mode}_log.out"
+    logger_dir = f"scamper_log/{args.trial}_{args.mode}_log.out"
     output_dir_01 = f"images/{args.trial}_{args.mode}_data_statistics_most_used.png"
     output_dir_02 = f"images/{args.trial}_{args.mode}_data_statistics_all.png"
     
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     
     for unique_asn in unique_asns:
         filtered_df = metadata_df[metadata_df['asn_description'] == unique_asn].sort_values(by="total_byte_transferred", ascending=False)
-        queriable_ips = filtered_df.iloc[:5]['ip_addr']
+        queriable_ips = filtered_df.iloc[:2]['ip_addr']
         ping_results = []
         
         for queriable_ip in queriable_ips:
@@ -51,27 +51,31 @@ if __name__ == '__main__':
         flag = True
         
         for spec in specs:
-            print(f"[spec['queried_ip']], {asn}, {spec['packet loss rate']})")
+            # print(f"{spec['queried ip']}, {asn}, {spec['packet loss rate']})")
             if spec['round-trip min']:
                 all_min_data.append(spec['round-trip min'])
                 all_mean_data.append(spec['round-trip mean'])
                 all_max_data.append(spec['round-trip max'])
                 all_std_data.append(spec['round-trip stddev'])
-                available_asn_plus_ip.append(f"[spec['queried_ip']]({asn})")
+                asn_name = asn.split(" ")[0]
+                asn_cc = asn.split(", ")[-1]
+                asn_name = asn_name[:-1] if asn_name.endswith(",") else asn_name
+                available_asn_plus_ip.append(f"{spec['queried ip']}({asn_name}, {asn_cc})")
                 
                 if flag:
                     most_used_min_data.append(spec['round-trip min'])
                     most_used_mean_data.append(spec['round-trip mean'])
                     most_used_max_data.append(spec['round-trip max'])
                     most_used_std_data.append(spec['round-trip stddev'])
+                    asn_name = asn.split(" ")[0]
+                    asn_cc = asn.split(", ")[-1]
+                    asn_name = asn_name[:-1] if asn_name.endswith(",") else asn_name
+                    available_asn.append(asn_name + ", " + asn_cc)
                     flag = False
             else:
                 num_unreachable[idx] += 1
                 
-            if not flag:
-                available_asn.append(asn)
-                
-        fig, ax = plt.subplots(figsize=(15, 10))
+        fig, ax = plt.subplots(figsize=(18, 10))
         width = 0.2
         x_pos = range(len(available_asn))
         ax.bar([p - width for p in x_pos], most_used_min_data, width, label='min time', color='tab:blue')
@@ -89,7 +93,8 @@ if __name__ == '__main__':
             ax.text(i - width, most_used_min_data[i] + 0.5, str(most_used_min_data[i]), ha='center', va='bottom')
             ax.text(i, most_used_mean_data[i] + 0.5, str(most_used_mean_data[i]), ha='center', va='bottom')
             ax.text(i + width, most_used_max_data[i] + 0.5, str(most_used_max_data[i]), ha='center', va='bottom')
-            ax.text(i, most_used_mean_data[i] + most_used_std_data[i] + 1.5, f'±{most_used_std_data[i]}', ha='center', va='bottom', color='black')
+            ax.text(i, most_used_mean_data[i] + most_used_std_data[i] + 1.5, f'±{most_used_std_data[i]}', 
+                    ha='center', va='bottom', color='black')
         
         plt.tight_layout()
         plt.savefig(output_dir_01)

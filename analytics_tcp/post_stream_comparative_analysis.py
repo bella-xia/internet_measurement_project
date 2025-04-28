@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     # first store all necessary metadata in each capture
     captures_meta = []
-    type_counts = defaultdict(list[(tuple[str, int])])
+    type_counts = {}
     packet_pattern = re.compile(r"([\w]+)-([\w]+)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_(\d{4})")
 
     for idx, capture in enumerate(captures):
@@ -31,8 +31,10 @@ if __name__ == "__main__":
                 "identifier": meta.group(2),
                 "ts": f"{meta.group(4)}/{meta.group(5)} {meta.group(6)}:{meta.group(7)}"
             })
-            type_counts[meta.group(1)].append((meta.group(2), idx))
-
+            type_counts.setdefault(meta.group(1), {})
+            type_counts[meta.group(1)].setdefault(meta.group(2), [])
+            type_counts[meta.group(1)][meta.group(2)].append(idx)
+    
     if args.mode == "comparative":
         for k, v in type_counts.items():
             print(f"captured {len(v)} instances of {k}:")
@@ -56,37 +58,53 @@ if __name__ == "__main__":
                 dupacks:list[tuple[list, str]] = []
                 outoforders:list[tuple[list, str]] = []
 
-                navigated_set = set()
+                for (v_ident, v_set) in v.items():
 
-                for (v_ident, v_ins) in v:
-
-                    if v_ident in navigated_set:
-                        continue 
+                    rtt_arr, s2c_rtt_arr, c2s_rtt_arr = [], [], []
+                    win_arr, s2c_win_arr, c2s_win_arr = [], [], [] 
+                    retrans_arr, outoforders_arr, dupakcs_arr = [], [], [] 
+                    hdsk_arr, tls_hdsk_arr = [], []
                     
-                    navigated_set.add(v_ident)
+                    for v_ins in v_set:
 
-                    full_path = os.path.join(args.root_dir, captures_meta[v_ins]['capture'])
-                    df = pd.read_csv(full_path)
+                        full_path = os.path.join(args.root_dir, captures_meta[v_ins]['capture'])
+                        df = pd.read_csv(full_path)
 
-                    rtt_avgs.append((list(df['rtt_avg']), captures_meta[v_ins]['identifier']))
-                    s2c_rtt_avgs.append((list(df['dst2src_rtt_avg']), captures_meta[v_ins]['identifier']))
-                    c2s_rtt_avgs.append((list(df['src2dst_rtt_avg']), captures_meta[v_ins]['identifier']))
+                        rtt_arr.extend(list(df['rtt_avg']))
+                        s2c_rtt_arr.extend(list(df['dst2src_rtt_avg']))
+                        c2s_rtt_arr.extend(list(df['src2dst_rtt_avg']))
 
-                    win_avgs.append((list(df['window_avg']), captures_meta[v_ins]['identifier']))
-                    s2c_win_avgs.append((list(df['dst2src_window_avg']), captures_meta[v_ins]['identifier']))
-                    c2s_win_avgs.append((list(df['src2dst_window_avg']), captures_meta[v_ins]['identifier']))
+                        win_arr.extend(list(df['window_avg']))
+                        s2c_win_arr.extend(list(df['dst2src_window_avg']))
+                        c2s_win_arr.extend(list(df['src2dst_window_avg']))
 
-                    retrans.append((list(df['num_retransmission']), captures_meta[v_ins]['identifier']))
-                    outoforders.append((list(df['num_outoforder']), captures_meta[v_ins]['identifier']))
-                    dupacks.append((list(df['num_duplicate_ack']), captures_meta[v_ins]['identifier']))
+                        retrans_arr.extend(list(df['num_retransmission']))
+                        outoforders_arr.extend(list(df['num_outoforder']))
+                        dupakcs_arr.extend(list(df['num_duplicate_ack']))
 
-                    hdsk = list(df[df['handshake_duration'] > 0.0]['handshake_duration'])
-                    if len(hdsk) > 0:
-                        hdsk_avgs.append((hdsk, captures_meta[v_ins]['identifier']))
+                        hdsk = list(df[df['handshake_duration'] > 0.0]['handshake_duration'])
+                        hdsk_arr.extend(hdsk)
 
-                    tls_hdsk = list(df[df['tls_handshake_duration'] > 0.0]['tls_handshake_duration'])
-                    if len(tls_hdsk) > 0:
-                        tls_hdsk_avgs.append((tls_hdsk, captures_meta[v_ins]['identifier']))
+                        tls_hdsk = list(df[df['tls_handshake_duration'] > 0.0]['tls_handshake_duration'])
+                        tls_hdsk_arr.extend(tls_hdsk)
+
+                    rtt_avgs.append((rtt_arr, captures_meta[v_ins]['identifier']))
+                    s2c_rtt_avgs.append((s2c_rtt_arr, captures_meta[v_ins]['identifier']))
+                    c2s_rtt_avgs.append((c2s_rtt_arr, captures_meta[v_ins]['identifier']))
+
+                    win_avgs.append((win_arr, captures_meta[v_ins]['identifier']))
+                    s2c_win_avgs.append((s2c_win_arr, captures_meta[v_ins]['identifier']))
+                    c2s_win_avgs.append((c2s_win_arr, captures_meta[v_ins]['identifier']))
+
+                    retrans.append((retrans_arr, captures_meta[v_ins]['identifier']))
+                    outoforders.append((outoforders_arr, captures_meta[v_ins]['identifier']))
+                    dupacks.append((dupakcs_arr, captures_meta[v_ins]['identifier']))
+
+                    if len(hdsk_arr) > 0:
+                        hdsk_avgs.append((hdsk_arr, captures_meta[v_ins]['identifier']))
+
+                    if len(tls_hdsk_arr) > 0:
+                        tls_hdsk_avgs.append((tls_hdsk_arr, captures_meta[v_ins]['identifier']))
                 
                 produce_pdf(rtt_avgs, savename=f"{args.output_dir}/{args.mode}/{k}_rtt_avg_pdf.png",
                             x_unit="rtt (s)", title=f"{k} Average Round-Trip Time PDF")

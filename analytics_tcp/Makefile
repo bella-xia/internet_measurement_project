@@ -18,6 +18,10 @@ STREAM_SRC = main.cpp stream_analysis.cpp
 STREAM_OBJ = $(STREAM_SRC:.cpp=.o)
 STREAM_TARGET = stream
 
+ANOMALY_SRC = main.cpp anomaly_analysis.cpp
+ANOMALY_OBJ = $(ANOMALY_SRC:.cpp=.o)
+ANOMALY_TARGET = anomaly
+
 # Executable name
 # Default target
 all: $(STREAM_TARGET)
@@ -26,13 +30,16 @@ all: $(STREAM_TARGET)
 $(STREAM_TARGET): $(STREAM_OBJ)
 	$(CXX) $(CXXSTD) $(STREAM_OBJ) -o $(STREAM_TARGET) $(LDFLAGS) $(LIBS)
 
+$(ANOMALY_TARGET): $(ANOMALY_OBJ)
+	$(CXX) $(CXXSTD) $(ANOMALY_OBJ) -o $(ANOMALY_TARGET) $(LDFLAGS) $(LIBS)
+
 # Rule to build object file
 %.o: %.cpp
 	$(CXX) $(CXXSTD) $(CXXFLAGS) -c $< -o $@
 
 # Clean rule
 clean:
-	rm -f *.o $(STREAM_TARGET) depend.mak 
+	rm -f *.o $(STREAM_TARGET) ${ANOMALY_TARGET} depend.mak 
 
 depend :
 	$(CXX) $(CXXFLAGS) -M $(CXX_SRCS) >> depend.mak

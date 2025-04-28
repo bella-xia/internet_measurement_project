@@ -4,13 +4,16 @@ import numpy as np
 
 def produce_pdf(data: list[tuple[list, str]], savename: str="output.png",
                 x_unit: str| None = None, title: str | None = None,
-                logscale: bool = False,
-                density: bool = True) -> None:
+                logscale: bool = False, ylogscale: bool = False,
+                density: bool = True, 
+                ylabel="density") -> None:
     
     for ins, lab in data:
         plt.hist(ins, density=density, alpha=0.5, label=lab)
 
-    plt.ylabel("Density")
+    plt.ylabel(ylabel)
+    if ylogscale:
+        plt.yscale("log")
     if logscale:
         plt.xscale("log")
     if x_unit:

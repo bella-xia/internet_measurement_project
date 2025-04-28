@@ -24,7 +24,7 @@ def get_city_from_ip(ip_address, database_path):
 
 if __name__ == "__main__":
     database_file = "../GeoLite2-City_20250221/GeoLite2-City.mmdb"
-    root_dir = "../data/convbyte"
+    root_dir = "../analytics_pcap/data/convbyte"
     dict_data = {}
     
     csv_filenames = os.listdir(root_dir)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         df = pd.read_csv(os.path.join(root_dir, csv_filename))
         for idx in trange(len(df)):
             instance = df.iloc[idx]
-            domain_name_split_by_level = instance['domain_name'].split('.')
+            domain_name_split_by_level = instance['domain_name'].split('.') if instance['domain_name'] != "unresolved" else ["unresolved", "unresolved"]
             if instance['ip_addr'] not in dict_data:
                 dict_data[instance['ip_addr']] = {'domain_name': instance['domain_name'],
                                                'total_byte_transferred': instance['byte_from'],
@@ -52,7 +52,15 @@ if __name__ == "__main__":
                 dict_data[instance['ip_addr']]['city'] = geoloc_data['city']
                 dict_data[instance['ip_addr']]['country'] = geoloc_data['country']
             
-            asn_data = IPWhois(instance['ip_addr']).lookup_rdap()
+            try:
+                asn_data = IPWhois(instance['ip_addr']).lookup_rdap()
+            except Exception:
+                asn_data = {
+                    'asn_registry': "unresolved",
+                    'asn': "unresolved",
+                    "asn_description": "unresolved",
+                    "asn_cidr": "unresolved"
+                }
             dict_data[instance['ip_addr']]['asn_registry'] = asn_data['asn_registry']
             dict_data[instance['ip_addr']]['asn'] = asn_data['asn']
             dict_data[instance['ip_addr']]['asn_description'] = asn_data['asn_description']

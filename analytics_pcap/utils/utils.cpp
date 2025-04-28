@@ -54,5 +54,5 @@ std::string resolve_ip_to_hostname(const std::string &ip)
     {
         return std::string(host);
     }
-    return ""; // Return empty if resolution fails
+    return "unresolved"; // Return empty if resolution fails
 }
